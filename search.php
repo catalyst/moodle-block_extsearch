@@ -14,7 +14,15 @@ $filter   = optional_param('filter',array(), PARAM_TEXT);
 $direction = optional_param('direction',0,PARAM_INT); //options 0 or 1. if 1, sets sort direction to desc. (DNZ specific)
 $sort     = optional_param('sort','',PARAM_TEXT); //field to sort by (category, content_provider, date, syndication_date, title) (DNZ specific)
 
-if (!$course = get_record('course', 'id', $courseid)) {
+if ($courseid && ($courseid <> SITEID)){
+    $PAGE->set_course($DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST));
+    $PAGE->set_context(get_context_instance(CONTEXT_COURSE, $courseid));
+} else {
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+}
+$PAGE->set_url(qualified_me());
+
+if (!$course = $DB->get_record('course', array('id'=>$courseid))) {
     print_error('error:incorrectcourseid', 'block_extsearch');
 }
 $courselink = $CFG->wwwroot.'/course/view.php?id='.$courseid;
@@ -23,13 +31,7 @@ if ($page < 0) {
     $page = 0;
 }
 
-if ($pinned) {
-    $table = 'block_pinned';
-} else {
-    $table = 'block_instance';
-}
-
-if (!$blockinstance = get_record($table, 'id', $id)) {
+if (!$blockinstance = $DB->get_record('block_instances', array('id'=>$id))) {
     if (empty($choose)) {
         print_error('error:incorrectblockid', 'block_extsearch', $courselink);
     }
@@ -40,7 +42,7 @@ if (!$blockinstance = get_record($table, 'id', $id)) {
 $blockconfig = unserialize(base64_decode($blockinstance->configdata));
 
 $searchprovider = '';
-$searchprovidername = get_string('blockname', 'block_extsearch');
+$searchprovidername = get_string('pluginname', 'block_extsearch');
 if (!empty($blockconfig->search_provider)) {
     $searchprovider = clean_param($blockconfig->search_provider, PARAM_ALPHANUM);
     $searchprovidername = get_string($blockconfig->search_provider, 'block_extsearch');
@@ -54,10 +56,6 @@ if (!file_exists("$searchengineclassname.php")) {
 // Page header
 $pagetitle = $searchprovidername;
 $navlinks = array();
-if ($courseid != SITEID) {
-    $navlinks[] = array('name' => $course->fullname, 'link' => $courselink, 'type' => 'course');
-    $pagetitle = $course->fullname . ': ' . $pagetitle;
-}
 $navlinks[] = array('name' => $searchprovidername, 'link' => '', 'type' => 'activity');
 $navigation = build_navigation($navlinks);
 
@@ -105,13 +103,13 @@ if (!empty($direction)) {
 }
 print '<input type="text" id="query" name="query" size="48" value="'.htmlspecialchars($query).'" />';
 print '<input type="submit" value="'.get_string('searchbutton', 'block_extsearch').'" />';
-print helpbutton('querysyntax_'.$searchprovider, get_string('querysyntax', 'block_extsearch'), 'block_extsearch').'</p>';
+print $OUTPUT->help_icon('querysyntax_'.$searchprovider, 'block_extsearch', get_string('querysyntax','block_extsearch')).'</p>';
 print '</form>';
 
 if (!empty($query) && $searchengine->search()) {
     $searchengine->print_results($id, $courseid, $choose);
 }
 
-print_footer($course, $courseid);
+print $OUTPUT->footer();
 
 ?>
